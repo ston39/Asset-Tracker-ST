@@ -42,7 +42,7 @@ const COLORS = ['#10b981', '#3b82f6', '#0ea5e9', '#f59e0b', '#94a3b8', '#8b5cf6'
 const formatNumber = (num: number | string) => {
   const value = typeof num === 'string' ? parseFloat(num) : num;
   if (isNaN(value)) return '';
-  return value.toLocaleString('vi-VN');
+  return value.toLocaleString('en-US');
 };
 
 const handleInputFocus = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -54,8 +54,8 @@ const handleInputFocus = (e: React.FocusEvent<HTMLInputElement>) => {
 };
 
 const parseNumber = (str: string) => {
-  // Remove dots (thousands separator in vi-VN) and replace comma with dot (decimal separator in vi-VN)
-  const cleanStr = str.replace(/\./g, '').replace(/,/g, '.');
+  // Remove commas (thousands separator in en-US)
+  const cleanStr = str.replace(/,/g, '');
   return parseFloat(cleanStr) || 0;
 };
 
@@ -447,7 +447,7 @@ export default function App() {
                 </div>
               </div>
               <div className="text-3xl font-bold text-slate-900">
-                {stats.totalValue.toLocaleString('vi-VN')}
+                {stats.totalValue.toLocaleString('en-US')}
               </div>
             </motion.div>
 
@@ -487,7 +487,11 @@ export default function App() {
                           type="text"
                           defaultValue={formatNumber(mp.price)}
                           onFocus={handleInputFocus}
-                          onBlur={(e) => handleUpdateMarketPrice(mp.symbol, parseNumber(e.target.value))}
+                          onBlur={(e) => {
+                            const val = parseNumber(e.target.value);
+                            handleUpdateMarketPrice(mp.symbol, val);
+                            e.target.value = formatNumber(val);
+                          }}
                           className="bg-transparent text-sm font-bold text-slate-900 w-24 outline-none focus:text-emerald-600"
                         />
                       </div>
@@ -552,7 +556,7 @@ export default function App() {
                   <RechartsTooltip 
                     formatter={(value: number, name: string, props: any) => {
                       const percentage = props.payload.percentage?.toFixed(1) || 0;
-                      return [`${value.toLocaleString('vi-VN')} (${percentage}%)`, name];
+                      return [`${value.toLocaleString('en-US')} (${percentage}%)`, name];
                     }}
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                   />
@@ -566,7 +570,7 @@ export default function App() {
                   <div>
                     <div className="text-xs text-slate-500 font-medium uppercase tracking-wider">{item.name}</div>
                     <div className="text-sm font-bold text-slate-900">
-                      {item.value.toLocaleString('vi-VN')}
+                      {item.value.toLocaleString('en-US')}
                       <span className="ml-1 text-xs font-medium text-slate-400">({item.percentage.toFixed(1)}%)</span>
                     </div>
                   </div>
@@ -731,10 +735,10 @@ export default function App() {
                           <div className="text-xs text-slate-500 font-mono">{asset.type}</div>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="text-sm font-bold text-slate-900">{marketValue.toLocaleString('vi-VN')}</div>
+                          <div className="text-sm font-bold text-slate-900">{marketValue.toLocaleString('en-US')}</div>
                           <div className={`text-xs flex items-center gap-0.5 ${isProfit ? 'text-emerald-600' : 'text-rose-600'}`}>
                             {isProfit ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                            {isProfit ? '+' : ''}{profitLoss.toLocaleString('vi-VN')}
+                            {isProfit ? '+' : ''}{profitLoss.toLocaleString('en-US')}
                           </div>
                         </td>
                         <td className="px-6 py-4">
