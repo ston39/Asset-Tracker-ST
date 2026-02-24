@@ -63,6 +63,7 @@ export default function App() {
   const [marketPrices, setMarketPrices] = useState<MarketPrice[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPasscodeModalOpen, setIsPasscodeModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -234,7 +235,11 @@ export default function App() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!passcode) return;
+    if (!passcode || isSubmitting) return;
+    
+    setIsSubmitting(true);
+    console.log('Submitting asset data...');
+    
     const formData = new FormData(e.currentTarget);
     const data: Partial<Asset> = {
       name: (formData.get('name') as string) || 'Unnamed Asset',
@@ -253,12 +258,15 @@ export default function App() {
       const id = editingAsset ? editingAsset.id : Date.now();
       const assetRef = ref(database, `users/${passcode}/assets/${id}`);
       await set(assetRef, { ...data, id });
+      console.log('Asset saved successfully');
       
       setIsModalOpen(false);
       setEditingAsset(null);
     } catch (error) {
       console.error('Failed to save asset:', error);
-      alert('Failed to save asset.');
+      alert('Failed to save asset. Check your Firebase rules or connection.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -703,7 +711,7 @@ export default function App() {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden"
+              className="relative bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-y-auto max-h-[90vh]"
             >
               <div className="p-8">
                 <div className="flex items-center justify-between mb-8">
@@ -823,9 +831,10 @@ export default function App() {
                     </button>
                     <button 
                       type="submit"
-                      className="flex-2 px-6 py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-600/20"
+                      disabled={isSubmitting}
+                      className="flex-2 px-6 py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {editingAsset ? 'Save Changes' : 'Add Asset'}
+                      {isSubmitting ? 'Saving...' : (editingAsset ? 'Save Changes' : 'Add Asset')}
                     </button>
                   </div>
                 </form>
