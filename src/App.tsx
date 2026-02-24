@@ -561,12 +561,12 @@ export default function App() {
               <thead>
                 <tr className="bg-slate-50/50">
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Asset</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Market Value</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Category</th>
                   <th className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Buying Date</th>
                   <th className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Holdings</th>
                   <th className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Buy Price</th>
                   <th className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Current Price</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Market Value</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Note</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Actions</th>
                 </tr>
@@ -594,6 +594,13 @@ export default function App() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="font-bold text-slate-900">{asset.name}</div>
                           <div className="text-xs text-slate-500 font-mono">{asset.type}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm font-bold text-slate-900">{marketValue.toLocaleString('vi-VN')}</div>
+                          <div className={`text-xs flex items-center gap-0.5 ${isProfit ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            {isProfit ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                            {isProfit ? '+' : ''}{profitLoss.toLocaleString('vi-VN')}
+                          </div>
                         </td>
                         <td className="px-6 py-4">
                           <select 
@@ -653,13 +660,6 @@ export default function App() {
                               }}
                               className="w-24 px-2 py-1 bg-transparent border border-transparent hover:border-slate-200 focus:border-emerald-500 focus:bg-white rounded text-sm font-bold text-slate-900 transition-all outline-none"
                             />
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="text-sm font-bold text-slate-900">{marketValue.toLocaleString('vi-VN')}</div>
-                          <div className={`text-xs flex items-center gap-0.5 ${isProfit ? 'text-emerald-600' : 'text-rose-600'}`}>
-                            {isProfit ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                            {isProfit ? '+' : ''}{profitLoss.toLocaleString('vi-VN')}
                           </div>
                         </td>
                         <td className="px-6 py-4 min-w-[180px]">
