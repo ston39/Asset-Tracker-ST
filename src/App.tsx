@@ -257,14 +257,16 @@ export default function App() {
     try {
       const id = editingAsset ? editingAsset.id : Date.now();
       const assetRef = ref(database, `users/${passcode}/assets/${id}`);
+      
+      console.log('Attempting to save to Firebase...', { id, data });
       await set(assetRef, { ...data, id });
       console.log('Asset saved successfully');
       
       setIsModalOpen(false);
       setEditingAsset(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save asset:', error);
-      alert('Failed to save asset. Check your Firebase rules or connection.');
+      alert(`Failed to save asset: ${error.message || 'Unknown error'}. Please check your internet connection and Firebase rules.`);
     } finally {
       setIsSubmitting(false);
     }
@@ -711,9 +713,9 @@ export default function App() {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-y-auto max-h-[90vh]"
+              className="relative bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]"
             >
-              <div className="p-8">
+              <div className="p-8 overflow-y-auto">
                 <div className="flex items-center justify-between mb-8">
                   <h3 className="text-2xl font-bold text-slate-900">
                     {editingAsset ? 'Edit Asset' : 'Add New Asset'}
@@ -763,10 +765,6 @@ export default function App() {
                         type="text"
                         defaultValue={editingAsset ? formatNumber(editingAsset.units) : ''}
                         onFocus={handleInputFocus}
-                        onChange={(e) => {
-                          const val = parseNumber(e.target.value);
-                          e.target.value = formatNumber(val);
-                        }}
                         placeholder="0"
                         className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
                       />
@@ -778,10 +776,6 @@ export default function App() {
                         type="text"
                         defaultValue={editingAsset ? formatNumber(editingAsset.buyPrice) : ''}
                         onFocus={handleInputFocus}
-                        onChange={(e) => {
-                          const val = parseNumber(e.target.value);
-                          e.target.value = formatNumber(val);
-                        }}
                         placeholder="0"
                         className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
                       />
@@ -793,10 +787,6 @@ export default function App() {
                         type="text"
                         defaultValue={editingAsset ? formatNumber(editingAsset.currentPrice) : ''}
                         onFocus={handleInputFocus}
-                        onChange={(e) => {
-                          const val = parseNumber(e.target.value);
-                          e.target.value = formatNumber(val);
-                        }}
                         placeholder="0"
                         className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
                       />
