@@ -8,7 +8,7 @@ const firebaseConfig = {
   storageBucket: "asset-tracker-st.firebasestorage.app",
   messagingSenderId: "289793239958",
   appId: "1:289793239958:web:b72b1d7b385ee755da0bb7",
-  databaseURL: "https://asset-tracker-st-default-rtdb.asia-southeast1.firebasedatabase.app"
+  databaseURL: "https://asset-tracker-st-default-rtdb.firebaseio.com"
 };
 
 const app = initializeApp(firebaseConfig);
