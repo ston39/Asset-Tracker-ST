@@ -713,8 +713,12 @@ export default function App() {
                   </tr>
                 ) : (
                   sortedAssets.map((asset) => {
-                    const marketValue = asset.units * asset.currentPrice;
-                    const profitLoss = (asset.currentPrice - asset.buyPrice) * asset.units;
+                    // Try to find the latest market price for this category
+                    const marketPriceData = marketPrices.find(mp => mp.symbol.trim().toLowerCase() === asset.category.trim().toLowerCase());
+                    const effectiveCurrentPrice = marketPriceData ? marketPriceData.price : asset.currentPrice;
+                    
+                    const marketValue = asset.units * effectiveCurrentPrice;
+                    const profitLoss = (effectiveCurrentPrice - asset.buyPrice) * asset.units;
                     const isProfit = profitLoss >= 0;
 
                     return (
@@ -782,7 +786,8 @@ export default function App() {
                           <div className="flex items-center gap-1">
                             <input 
                               type="text"
-                              defaultValue={formatNumber(asset.currentPrice)}
+                              key={`${asset.id}-${effectiveCurrentPrice}`}
+                              defaultValue={formatNumber(effectiveCurrentPrice)}
                               onFocus={handleInputFocus}
                               onBlur={(e) => {
                                 const val = parseNumber(e.target.value);
