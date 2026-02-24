@@ -15,7 +15,9 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Lock,
-  LogOut
+  LogOut,
+  ChevronUp,
+  ChevronDown
 } from 'lucide-react';
 import { 
   PieChart, 
@@ -70,6 +72,7 @@ export default function App() {
   const [loginInput, setLoginInput] = useState('');
   const [newPasscode, setNewPasscode] = useState('');
   const [selectedMarketCategory, setSelectedMarketCategory] = useState<AssetCategory>(CATEGORIES[0]);
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>({ key: 'buyDate', direction: 'desc' });
 
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [deletingSymbol, setDeletingSymbol] = useState<string | null>(null);
@@ -218,10 +221,58 @@ export default function App() {
     return { totalValue, totalProfitLoss, profitLossPercentage, categoryDistribution };
   }, [assets]);
 
-  const filteredAssets = assets.filter(asset => 
-    asset.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    asset.type.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const sortedAssets = useMemo(() => {
+    let sortableAssets = [...assets].filter(asset => 
+      asset.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      asset.type.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    if (sortConfig !== null) {
+      sortableAssets.sort((a, b) => {
+        let aValue: any;
+        let bValue: any;
+
+        // Custom logic for Buying Date: No date -> Latest -> Oldest
+        if (sortConfig.key === 'buyDate') {
+          if (a.buyDate === b.buyDate) {
+            // If dates are same, sort by ID (creation time) descending
+            return b.id - a.id;
+          }
+          if (a.buyDate === "") return -1;
+          if (b.buyDate === "") return 1;
+          
+          return sortConfig.direction === 'asc' 
+            ? a.buyDate.localeCompare(b.buyDate) 
+            : b.buyDate.localeCompare(a.buyDate);
+        }
+
+        if (sortConfig.key === 'marketValue') {
+          aValue = a.units * a.currentPrice;
+          bValue = b.units * b.currentPrice;
+        } else {
+          aValue = a[sortConfig.key as keyof Asset];
+          bValue = b[sortConfig.key as keyof Asset];
+        }
+
+        if (aValue < bValue) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    return sortableAssets;
+  }, [assets, searchTerm, sortConfig]);
+
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
 
   const handleDelete = async (id: number) => {
     if (!passcode) return;
@@ -560,14 +611,94 @@ export default function App() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/50">
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Asset</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Market Value</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Category</th>
-                  <th className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Buying Date</th>
-                  <th className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Holdings</th>
-                  <th className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Buy Price</th>
-                  <th className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Current Price</th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Note</th>
+                  <th 
+                    className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => handleSort('name')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Asset
+                      {sortConfig?.key === 'name' && (
+                        sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => handleSort('marketValue')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Market Value
+                      {sortConfig?.key === 'marketValue' && (
+                        sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => handleSort('category')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Category
+                      {sortConfig?.key === 'category' && (
+                        sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => handleSort('buyDate')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Buying Date
+                      {sortConfig?.key === 'buyDate' && (
+                        sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => handleSort('units')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Holdings
+                      {sortConfig?.key === 'units' && (
+                        sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => handleSort('buyPrice')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Buy Price
+                      {sortConfig?.key === 'buyPrice' && (
+                        sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => handleSort('currentPrice')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Current Price
+                      {sortConfig?.key === 'currentPrice' && (
+                        sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => handleSort('note')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Note
+                      {sortConfig?.key === 'note' && (
+                        sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                      )}
+                    </div>
+                  </th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Actions</th>
                 </tr>
               </thead>
@@ -576,12 +707,12 @@ export default function App() {
                   <tr>
                     <td colSpan={9} className="px-6 py-12 text-center text-slate-400">Loading assets...</td>
                   </tr>
-                ) : filteredAssets.length === 0 ? (
+                ) : sortedAssets.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="px-6 py-12 text-center text-slate-400">No assets found. Click "Add Asset" to get started.</td>
                   </tr>
                 ) : (
-                  filteredAssets.map((asset) => {
+                  sortedAssets.map((asset) => {
                     const marketValue = asset.units * asset.currentPrice;
                     const profitLoss = (asset.currentPrice - asset.buyPrice) * asset.units;
                     const isProfit = profitLoss >= 0;
