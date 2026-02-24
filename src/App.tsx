@@ -126,7 +126,8 @@ export default function App() {
       if (currentAssets) {
         const updates: any = {};
         Object.keys(currentAssets).forEach(key => {
-          if (currentAssets[key].category === symbol) {
+          const asset = currentAssets[key];
+          if (asset.category?.trim().toLowerCase() === symbol.trim().toLowerCase()) {
             updates[`users/${passcode}/assets/${key}/currentPrice`] = price;
             updates[`users/${passcode}/assets/${key}/updatedAt`] = new Date().toISOString();
           }
@@ -238,16 +239,31 @@ export default function App() {
     if (!passcode || isSubmitting) return;
     
     setIsSubmitting(true);
-    console.log('Submitting asset data...');
-    
     const formData = new FormData(e.currentTarget);
+    const category = (formData.get('category') as AssetCategory) || 'Other';
+    let currentPrice = parseNumber(formData.get('currentPrice') as string);
+
+    // If currentPrice is 0, try to inherit from market prices
+    if (currentPrice === 0) {
+      try {
+        const priceRef = ref(database, `users/${passcode}/marketPrices/${category}`);
+        const priceSnapshot = await get(priceRef);
+        const marketPrice = priceSnapshot.val();
+        if (marketPrice && marketPrice.price > 0) {
+          currentPrice = marketPrice.price;
+        }
+      } catch (err) {
+        console.error('Failed to fetch market price for default:', err);
+      }
+    }
+
     const data: Partial<Asset> = {
       name: (formData.get('name') as string) || 'Unnamed Asset',
-      category: (formData.get('category') as AssetCategory) || 'Other',
+      category,
       type: (formData.get('type') as string) || 'N/A',
       units: parseNumber(formData.get('units') as string),
       buyPrice: parseNumber(formData.get('buyPrice') as string),
-      currentPrice: parseNumber(formData.get('currentPrice') as string),
+      currentPrice,
       buyDate: (formData.get('buyDate') as string) || '',
       note: (formData.get('note') as string) || '',
       currency: 'VNĐ',
@@ -258,9 +274,7 @@ export default function App() {
       const id = editingAsset ? editingAsset.id : Date.now();
       const assetRef = ref(database, `users/${passcode}/assets/${id}`);
       
-      console.log('Attempting to save to Firebase...', { id, data });
       await set(assetRef, { ...data, id });
-      console.log('Asset saved successfully');
       
       setIsModalOpen(false);
       setEditingAsset(null);
@@ -276,7 +290,19 @@ export default function App() {
     if (!passcode) return;
     try {
       const assetRef = ref(database, `users/${passcode}/assets/${asset.id}`);
-      await update(assetRef, { [field]: value, updatedAt: new Date().toISOString() });
+      const updates: any = { [field]: value, updatedAt: new Date().toISOString() };
+
+      // If category is changed, try to auto-update currentPrice to market price
+      if (field === 'category') {
+        const priceRef = ref(database, `users/${passcode}/marketPrices/${value}`);
+        const priceSnapshot = await get(priceRef);
+        const marketPrice = priceSnapshot.val();
+        if (marketPrice && marketPrice.price > 0) {
+          updates.currentPrice = marketPrice.price;
+        }
+      }
+
+      await update(assetRef, updates);
     } catch (error) {
       console.error('Failed to update asset inline:', error);
     }
