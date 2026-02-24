@@ -398,10 +398,6 @@ export default function App() {
               <div className="text-3xl font-bold text-slate-900">
                 {stats.totalValue.toLocaleString('vi-VN')}
               </div>
-              <div className={`flex items-center gap-1 mt-2 text-sm font-medium ${stats.totalProfitLoss >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                {stats.totalProfitLoss >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                {stats.totalProfitLoss >= 0 ? '+' : ''}{stats.totalProfitLoss.toLocaleString('vi-VN')} ({stats.profitLossPercentage.toFixed(2)}%)
-              </div>
             </motion.div>
 
             {/* Market Prices Section */}
