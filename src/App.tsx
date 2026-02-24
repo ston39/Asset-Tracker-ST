@@ -30,6 +30,8 @@ import {
   CartesianGrid
 } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
+import { ref, onValue, set, remove, update, get } from 'firebase/database';
+import { database } from './firebase';
 import { Asset, AssetCategory, MarketPrice } from './types';
 
 const CATEGORIES: AssetCategory[] = ['Cash', 'Stock', 'Term Deposit', 'Gold', 'Silver', 'Crypto', 'Fixed Income', 'Other'];
@@ -73,87 +75,83 @@ export default function App() {
 
   useEffect(() => {
     if (passcode) {
-      fetchAssets();
-      fetchMarketPrices();
+      setIsLoading(true);
+      const assetsRef = ref(database, `users/${passcode}/assets`);
+      const unsubscribeAssets = onValue(assetsRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          const assetsList = Object.values(data) as Asset[];
+          setAssets(assetsList.sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime()));
+        } else {
+          setAssets([]);
+        }
+        setIsLoading(false);
+      });
+
+      const pricesRef = ref(database, `users/${passcode}/marketPrices`);
+      const unsubscribePrices = onValue(pricesRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          setMarketPrices(Object.values(data) as MarketPrice[]);
+        } else {
+          setMarketPrices([]);
+        }
+      });
+
+      return () => {
+        unsubscribeAssets();
+        unsubscribePrices();
+      };
     } else {
       setIsLoading(false);
     }
   }, [passcode]);
 
-  const fetchAssets = async () => {
-    if (!passcode) return;
-    setIsLoading(true);
-    try {
-      const res = await fetch('/api/assets', {
-        headers: { 'x-passcode': passcode }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setAssets(data);
-      } else if (res.status === 401) {
-        handleLogout();
-      }
-    } catch (error) {
-      console.error('Failed to fetch assets:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const fetchMarketPrices = async () => {
-    if (!passcode) return;
-    try {
-      const res = await fetch('/api/market-prices', {
-        headers: { 'x-passcode': passcode }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setMarketPrices(data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch market prices:', error);
-    }
-  };
-
   const handleUpdateMarketPrice = async (symbol: string, price: number) => {
     if (!passcode) return;
     try {
-      await fetch('/api/market-prices', {
-        method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-          'x-passcode': passcode
-        },
-        body: JSON.stringify({ symbol, price }),
+      const priceRef = ref(database, `users/${passcode}/marketPrices/${symbol}`);
+      await set(priceRef, {
+        symbol,
+        price,
+        updatedAt: new Date().toISOString()
       });
-      fetchMarketPrices();
-      fetchAssets(); // Refresh assets to see updated current prices
+      
+      // Update current prices in assets that match this category
+      const assetsRef = ref(database, `users/${passcode}/assets`);
+      const snapshot = await get(assetsRef);
+      const currentAssets = snapshot.val();
+      
+      if (currentAssets) {
+        const updates: any = {};
+        Object.keys(currentAssets).forEach(key => {
+          if (currentAssets[key].category === symbol) {
+            updates[`users/${passcode}/assets/${key}/currentPrice`] = price;
+            updates[`users/${passcode}/assets/${key}/updatedAt`] = new Date().toISOString();
+          }
+        });
+        if (Object.keys(updates).length > 0) {
+          await update(ref(database), updates);
+        }
+      }
     } catch (error) {
       console.error('Failed to update market price:', error);
     }
   };
 
-  const handleAddMarketPrice = async (e: React.FormEvent) => {
+  const handleAddMarketPrice = (e: React.FormEvent) => {
     e.preventDefault();
-    await handleUpdateMarketPrice(selectedMarketCategory, 0);
+    handleUpdateMarketPrice(selectedMarketCategory, 0);
   };
 
   const handleDeleteMarketPrice = async (symbol: string) => {
+    if (!passcode) return;
     try {
-      const res = await fetch(`/api/market-prices/${encodeURIComponent(symbol)}`, {
-        method: 'DELETE',
-        headers: { 'x-passcode': passcode || '' }
-      });
-      
-      if (res.ok) {
-        setDeletingSymbol(null);
-        fetchMarketPrices();
-      } else {
-        const err = await res.json();
-        alert(`Error: ${err.error || 'Failed to delete'}`);
-      }
+      const priceRef = ref(database, `users/${passcode}/marketPrices/${symbol}`);
+      await remove(priceRef);
+      setDeletingSymbol(null);
     } catch (error) {
-      alert('Network error. Please try again.');
+      console.error('Failed to delete market price:', error);
     }
   };
 
@@ -175,30 +173,28 @@ export default function App() {
     e.preventDefault();
     if (!passcode || !newPasscode.trim()) return;
 
+    const updatedPasscode = newPasscode.trim();
     try {
-      const res = await fetch('/api/auth/change-passcode', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'x-passcode': passcode
-        },
-        body: JSON.stringify({ newPasscode: newPasscode.trim() }),
-      });
-
-      if (res.ok) {
-        const updatedPasscode = newPasscode.trim();
-        localStorage.setItem('assetflow_passcode', updatedPasscode);
-        setPasscode(updatedPasscode);
-        setIsPasscodeModalOpen(false);
-        setNewPasscode('');
-        alert('Passcode updated successfully!');
-      } else {
-        const err = await res.json();
-        alert(`Error: ${err.error || 'Failed to update passcode'}`);
+      // Move data to new keys in Firebase
+      const oldUserRef = ref(database, `users/${passcode}`);
+      const newUserRef = ref(database, `users/${updatedPasscode}`);
+      
+      const snapshot = await get(oldUserRef);
+      const data = snapshot.val();
+      
+      if (data) {
+        await set(newUserRef, data);
+        await remove(oldUserRef);
       }
+
+      localStorage.setItem('assetflow_passcode', updatedPasscode);
+      setPasscode(updatedPasscode);
+      setIsPasscodeModalOpen(false);
+      setNewPasscode('');
+      alert('Passcode updated successfully!');
     } catch (error) {
       console.error('Failed to change passcode:', error);
-      alert('Network error. Please try again.');
+      alert('Failed to update passcode.');
     }
   };
 
@@ -226,21 +222,13 @@ export default function App() {
   );
 
   const handleDelete = async (id: number) => {
+    if (!passcode) return;
     try {
-      const res = await fetch(`/api/assets/${id}`, { 
-        method: 'DELETE',
-        headers: { 'x-passcode': passcode || '' }
-      });
-      
-      if (res.ok) {
-        setDeletingId(null);
-        setAssets(prev => prev.filter(a => a.id !== id));
-      } else {
-        const err = await res.json();
-        alert(`Error: ${err.error || 'Failed to delete'}`);
-      }
+      const assetRef = ref(database, `users/${passcode}/assets/${id}`);
+      await remove(assetRef);
+      setDeletingId(null);
     } catch (error) {
-      alert('Network error. Please try again.');
+      console.error('Failed to delete asset:', error);
     }
   };
 
@@ -248,66 +236,37 @@ export default function App() {
     e.preventDefault();
     if (!passcode) return;
     const formData = new FormData(e.currentTarget);
-    const data = {
-      name: formData.get('name') || 'Unnamed Asset',
-      category: formData.get('category') || 'Other',
-      type: formData.get('type') || 'N/A',
+    const data: Partial<Asset> = {
+      name: (formData.get('name') as string) || 'Unnamed Asset',
+      category: (formData.get('category') as AssetCategory) || 'Other',
+      type: (formData.get('type') as string) || 'N/A',
       units: parseNumber(formData.get('units') as string),
       buyPrice: parseNumber(formData.get('buyPrice') as string),
       currentPrice: parseNumber(formData.get('currentPrice') as string),
-      buyDate: formData.get('buyDate') || '',
-      note: formData.get('note') || '',
-      currency: 'VNĐ'
+      buyDate: (formData.get('buyDate') as string) || '',
+      note: (formData.get('note') as string) || '',
+      currency: 'VNĐ',
+      updatedAt: new Date().toISOString()
     };
 
     try {
-      if (editingAsset) {
-        const res = await fetch(`/api/assets/${editingAsset.id}`, {
-          method: 'PUT',
-          headers: { 
-            'Content-Type': 'application/json',
-            'x-passcode': passcode
-          },
-          body: JSON.stringify(data),
-        });
-        if (!res.ok) throw new Error('Failed to update asset');
-        const updated = await res.json();
-        setAssets(assets.map(a => a.id === updated.id ? updated : a));
-      } else {
-        const res = await fetch('/api/assets', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'x-passcode': passcode
-          },
-          body: JSON.stringify(data),
-        });
-        if (!res.ok) throw new Error('Failed to create asset');
-        const created = await res.json();
-        setAssets([created, ...assets]);
-      }
+      const id = editingAsset ? editingAsset.id : Date.now();
+      const assetRef = ref(database, `users/${passcode}/assets/${id}`);
+      await set(assetRef, { ...data, id });
+      
       setIsModalOpen(false);
       setEditingAsset(null);
     } catch (error) {
       console.error('Failed to save asset:', error);
-      alert('Failed to save asset. Please check your connection and try again.');
+      alert('Failed to save asset.');
     }
   };
 
   const handleInlineUpdate = async (asset: Asset, field: keyof Asset, value: string | number) => {
     if (!passcode) return;
-    const updatedData = { ...asset, [field]: value };
     try {
-      const res = await fetch(`/api/assets/${asset.id}`, {
-        method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-          'x-passcode': passcode
-        },
-        body: JSON.stringify(updatedData),
-      });
-      const updated = await res.json();
-      setAssets(assets.map(a => a.id === updated.id ? updated : a));
+      const assetRef = ref(database, `users/${passcode}/assets/${asset.id}`);
+      await update(assetRef, { [field]: value, updatedAt: new Date().toISOString() });
     } catch (error) {
       console.error('Failed to update asset inline:', error);
     }
@@ -325,7 +284,7 @@ export default function App() {
             <div className="bg-emerald-600 p-3 rounded-2xl mb-4">
               <Lock className="w-8 h-8 text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-slate-900">Welcome to AssetFlow</h1>
+            <h1 className="text-2xl font-bold text-slate-900">Welcome to Asset Tracker</h1>
             <p className="text-slate-500 text-center mt-2">Enter your passcode to access your portfolio</p>
           </div>
           <form onSubmit={handleLogin} className="space-y-4">
@@ -364,7 +323,7 @@ export default function App() {
             <div className="bg-emerald-600 p-2 rounded-lg">
               <Wallet className="w-6 h-6 text-white" />
             </div>
-            <h1 className="text-xl font-bold tracking-tight text-slate-900">AssetFlow</h1>
+            <h1 className="text-xl font-bold tracking-tight text-slate-900">Asset Tracker</h1>
           </div>
           <div className="flex items-center gap-4">
             <button 
@@ -947,10 +906,10 @@ export default function App() {
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-2 opacity-50">
             <Wallet className="w-5 h-5" />
-            <span className="text-sm font-bold tracking-tight">AssetFlow</span>
+            <span className="text-sm font-bold tracking-tight">Asset Tracker</span>
           </div>
           <div className="text-sm text-slate-400">
-            © {new Date().getFullYear()} AssetFlow Portfolio Manager. All rights reserved.
+            © {new Date().getFullYear()} Asset Tracker Portfolio Manager. All rights reserved.
           </div>
           <div className="flex items-center gap-6 text-sm font-medium text-slate-400">
             <a href="#" className="hover:text-emerald-600 transition-colors">Privacy</a>
