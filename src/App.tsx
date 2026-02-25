@@ -17,7 +17,8 @@ import {
   Lock,
   LogOut,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  RefreshCw
 } from 'lucide-react';
 import { 
   PieChart, 
@@ -76,6 +77,7 @@ export default function App() {
 
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [deletingSymbol, setDeletingSymbol] = useState<string | null>(null);
+  const [isSyncingSilver, setIsSyncingSilver] = useState(false);
 
   useEffect(() => {
     if (passcode) {
@@ -110,6 +112,25 @@ export default function App() {
       setIsLoading(false);
     }
   }, [passcode]);
+
+  const handleSyncSilver = async () => {
+    if (!passcode || isSyncingSilver) return;
+    setIsSyncingSilver(true);
+    try {
+      const response = await fetch('/api/scrape-silver');
+      const data = await response.json();
+      if (data.success && data.price) {
+        await handleUpdateMarketPrice('Silver', data.price);
+      } else {
+        alert(data.error || 'Failed to sync silver price');
+      }
+    } catch (error) {
+      console.error('Sync error:', error);
+      alert('Failed to connect to sync service');
+    } finally {
+      setIsSyncingSilver(false);
+    }
+  };
 
   const handleUpdateMarketPrice = async (symbol: string, price: number) => {
     if (!passcode) return;
@@ -482,9 +503,22 @@ export default function App() {
                   {marketPrices.map((mp) => (
                     <div key={mp.symbol} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg border border-slate-100 group">
                       <div className="flex flex-col">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{mp.symbol}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{mp.symbol}</span>
+                          {mp.symbol === 'Silver' && (
+                            <button 
+                              onClick={handleSyncSilver}
+                              disabled={isSyncingSilver}
+                              className={`p-1 rounded hover:bg-slate-200 transition-colors ${isSyncingSilver ? 'animate-spin text-emerald-600' : 'text-slate-400'}`}
+                              title="Sync real-time price"
+                            >
+                              <RefreshCw className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
                         <input 
                           type="text"
+                          key={`${mp.symbol}-${mp.price}`}
                           defaultValue={formatNumber(mp.price)}
                           onFocus={handleInputFocus}
                           onBlur={(e) => {
