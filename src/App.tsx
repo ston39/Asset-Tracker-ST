@@ -118,15 +118,19 @@ export default function App() {
     setIsSyncingSilver(true);
     try {
       const response = await fetch('/api/scrape-silver');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Server responded with ${response.status}`);
+      }
       const data = await response.json();
       if (data.success && data.price) {
         await handleUpdateMarketPrice('Silver', data.price);
       } else {
         alert(data.error || 'Failed to sync silver price');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Sync error:', error);
-      alert('Failed to connect to sync service');
+      alert(`Sync failed: ${error.message || 'Could not connect to service'}`);
     } finally {
       setIsSyncingSilver(false);
     }

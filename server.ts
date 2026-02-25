@@ -9,6 +9,11 @@ async function startServer() {
 
   app.use(express.json());
 
+  // Health check
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
   // API route to scrape silver price
   app.get("/api/scrape-silver", async (req, res) => {
     try {
