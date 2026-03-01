@@ -78,6 +78,7 @@ export default function App() {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [deletingSymbol, setDeletingSymbol] = useState<string | null>(null);
   const [isSyncingSilver, setIsSyncingSilver] = useState(false);
+  const [isSyncingGold, setIsSyncingGold] = useState(false);
 
   useEffect(() => {
     if (passcode) {
@@ -133,6 +134,29 @@ export default function App() {
       alert(`Sync failed: ${error.message || 'Could not connect to service'}`);
     } finally {
       setIsSyncingSilver(false);
+    }
+  };
+
+  const handleSyncGold = async () => {
+    if (!passcode || isSyncingGold) return;
+    setIsSyncingGold(true);
+    try {
+      const response = await fetch('/api/scrape-gold');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Server responded with ${response.status}`);
+      }
+      const data = await response.json();
+      if (data.success && data.price) {
+        await handleUpdateMarketPrice('Gold', data.price);
+      } else {
+        alert(data.error || 'Failed to sync gold price');
+      }
+    } catch (error: any) {
+      console.error('Sync error:', error);
+      alert(`Sync failed: ${error.message || 'Could not connect to service'}`);
+    } finally {
+      setIsSyncingGold(false);
     }
   };
 
@@ -514,7 +538,17 @@ export default function App() {
                               onClick={handleSyncSilver}
                               disabled={isSyncingSilver}
                               className={`p-1 rounded hover:bg-slate-200 transition-colors ${isSyncingSilver ? 'animate-spin text-emerald-600' : 'text-slate-400'}`}
-                              title="Sync real-time price"
+                              title="Sync real-time silver price"
+                            >
+                              <RefreshCw className="w-3 h-3" />
+                            </button>
+                          )}
+                          {mp.symbol === 'Gold' && (
+                            <button 
+                              onClick={handleSyncGold}
+                              disabled={isSyncingGold}
+                              className={`p-1 rounded hover:bg-slate-200 transition-colors ${isSyncingGold ? 'animate-spin text-emerald-600' : 'text-slate-400'}`}
+                              title="Sync real-time gold price"
                             >
                               <RefreshCw className="w-3 h-3" />
                             </button>
