@@ -1,8 +1,4 @@
 {
-  "functions": {
-    "source": "functions",
-    "runtime": "nodejs18"
-  },
   "hosting": {
     "public": "dist",
     "ignore": [
@@ -12,17 +8,16 @@
     ],
     "rewrites": [
       {
-        "source": "/api/scrape-silver",
-        "function": "scrapeSilver"
-      },
-      {
-        "source": "/api/scrape-gold",
-        "function": "scrapeGold"
+        "source": "/api/**",
+        "function": "api"
       },
       {
         "source": "**",
         "destination": "/index.html"
       }
     ]
+  },
+  "functions": {
+    "source": "functions"
   }
 }
